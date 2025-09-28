@@ -1,0 +1,109 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Linting tools
+.ruff_cache/
+.pylint.d/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PEP 582
+__pypackages__/
+
+# Virtual environments
+.env
+.env.*
+.venv
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.virtualenv/
+
+# IDEs & editors
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Sphinx / docs builds
+docs/_build/
+doc/_build/
+/site/
+
+# Cython debug symbols
+cython_debug/
+
+# Project-specific caches (redundant but explicit)
+codon_verifier/__pycache__/
+codon_verifier/hosts/__pycache__/
+
+# Optional: large artifacts (uncomment as needed)
+# data/
+# models/
+# checkpoints/
+# outputs/
+# *.pkl
+# *.pt
+# *.pth
+# *.h5
+

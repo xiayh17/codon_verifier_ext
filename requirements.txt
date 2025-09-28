@@ -1,0 +1,8 @@
+numpy>=1.22
+scikit-learn>=1.1
+joblib>=1.2
+# Optional speed/quality boost for surrogate
+lightgbm>=3.3
+# Optional: ViennaRNA Python bindings (if not available, use RNAfold CLI)
+ViennaRNA
+

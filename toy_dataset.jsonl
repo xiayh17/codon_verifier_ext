@@ -1,0 +1,3 @@
+{"sequence":"ATGGCTGCTGCTGCTGCTGCT","protein_aa":"MAAAAAAA","host":"E_coli","expression":{"value":100.0,"unit":"RFU","assay":"toy"},"extra_features":{"plDDT_mean":85.0,"msa_depth":50,"conservation_mean":0.3}}
+{"sequence":"ATGGCCGCCGCCGCCGCCGCC","protein_aa":"MAAAAAAA","host":"E_coli","expression":{"value":150.0,"unit":"RFU","assay":"toy"},"extra_features":{"plDDT_mean":90.0,"msa_depth":80,"conservation_mean":0.5}}
+{"sequence":"ATGGCGGCGGCGGCGGCGGCG","protein_aa":"MAAAAAAA","host":"E_coli","expression":{"value":200.0,"unit":"RFU","assay":"toy"},"extra_features":{"plDDT_mean":70.0,"msa_depth":30,"conservation_mean":0.2}}
