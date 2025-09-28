@@ -10,16 +10,18 @@
       - ESM/ProtTrans 的 .npz（取全序列均值向量维度与L2范数），
       - Evo 的 .json（如 msa_depth, conservation_mean），
       - 以及任意 extras.json
- 组装一个 FeatureBundle。
+  组装一个 FeatureBundle。
     - FeatureBundle.to_dict() 会转为纯 dict，用于规则打分器。
     - 还内置了基于 Kyte–Doolittle 的平均疏水性与长度特征。
   - codon_verifier/cache.py
     - 提供按 (AA序列 + 宿主) 的哈希缓存：save_features / load_features，默认目录 /mnt/data/codon_feature_cache（可用环境变量 CODON_VERIFIER_CACHE 改）。
+  - codon_verifier/lm_features.py
+    - combined_lm_features / score_nt_lm：封装宿主特异 nt-LM（默认回退为基于密码子使用频率的简易模型），输出 loglik、perplexity、归一化得分等字段，方便直接替换为 Evo2 真正的语言模型。
 - 规则打分整合：
   - metrics.py 新增 extra_feature_terms(extra: dict)，将 plDDT_mean、msa_depth、conservation_mean、kd_hydropathy_mean 等压到 [0,1] 后合成 feat_struct_term。
-  - rules_score(...) 现支持 extra_features 参数，并在权重字典中新增 feat_struct（默认 0.3）。返回值里也包含 feat_struct_term，便于监控。
+  - rules_score(...) 现支持 lm_features / extra_features 参数：lm_features 可承接 Evo2（或本地近似）的 loglik / perplexity / 归一化分数，权重字典新增 lm_host 与 lm_cond，默认强调宿主兼容性与条件一致性。
 - 奖励函数透传：
-  - reward.combine_reward(...) 增加 extra_features 参数并传入 rules_score。
+  - reward.combine_reward(...) 支持 lm_features 与 extra_features，自动合并后传给 rules_score，并把原始 LM 明细写入输出，便于代理模型训练与诊断。
 - 新增演示脚本：
   - codon_verifier/run_demo_features.py：演示如何组装 FeatureBundle → 缓存 → 加入 combine_reward 的 extra_features 字段。
 已经重新打包好：
@@ -28,6 +30,7 @@
 from codon_verifier.features import assemble_feature_bundle
 from codon_verifier.cache import save_features, load_features
 from codon_verifier.reward import combine_reward
+from codon_verifier.lm_features import combined_lm_features
 
 # 1) 组装特征（文件路径可选，缺省就只算AA派生的长度/疏水性）
 fb = assemble_feature_bundle(
@@ -40,13 +43,17 @@ fb = assemble_feature_bundle(
 feat_dict = fb.to_dict()
 save_features(protein_aa, host="E_coli", feats=feat_dict)  # 按需缓存
 
-# 2) 奖励计算时传入 extra_features
+# 2) 奖励计算时合并语言模型特征
+lm_feats = combined_lm_features(cds_dna, aa=protein_aa, host="E_coli")
+extra = dict(feat_dict)
+extra.update(lm_feats)
 res = combine_reward(
     dna=cds_dna,
     usage=HOST_USAGE,
     surrogate_mu=mu, surrogate_sigma=sigma,
     trna_w=HOST_TRNA, cpb=HOST_CPB, motifs=FORBIDDEN_SITES,
-    extra_features=feat_dict,      # 或 load_features(protein_aa, host)
+    lm_features=lm_feats,
+    extra_features=extra,      # 或 load_features(...) 后再补充 LM 特征
     w_surrogate=1.0, w_rules=1.0, lambda_uncertainty=1.0
 )
 说明与后续可拓展

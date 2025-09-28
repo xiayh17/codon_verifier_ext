@@ -22,7 +22,9 @@ python -m codon_verifier.run_demo
 你会看到每个子指标与 reward 总分的打印输出。
 2. 在你自己的流程里：
 from codon_verifier.reward import combine_reward
+from codon_verifier.lm_features import combined_lm_features
 
+lm_feats = combined_lm_features(<你的CDS，无终止子>, aa=<AA序列>, host="E_coli")
 res = combine_reward(
     dna=<你的CDS，无终止子>,
     usage=<宿主codon使用表: dict[codon]->freq>,
@@ -31,6 +33,8 @@ res = combine_reward(
     trna_w=<宿主tRNA权重: dict[codon]->weight，可选>,
     cpb=<密码子对表，可选>,
     motifs=["GAATTC","GGATCC",...],  # 禁忌位点
+    lm_features=lm_feats,
+    extra_features=lm_feats,
     w_surrogate=1.0, w_rules=1.0, lambda_uncertainty=1.0
 )
 如何替换成“真实世界”配置

@@ -58,9 +58,21 @@ def aggregate_window_gc(seq: str, window: int = 50, step: int = 10) -> Dict[str,
 
 def extra_feature_defaults(extra: Optional[dict]) -> Dict[str, float]:
     extra = extra or {}
-    keys = ["plDDT_mean","plDDT_min","esm_emb_dim","esm_emb_l2","msa_depth",
-            "conservation_mean","length","kd_hydropathy_mean"]
-    return {k: float(extra.get(k, 0.0) or 0.0) for k in keys}
+    keys = [
+        "plDDT_mean","plDDT_min","esm_emb_dim","esm_emb_l2","msa_depth",
+        "conservation_mean","length","kd_hydropathy_mean"
+    ]
+    out = {k: float(extra.get(k, 0.0) or 0.0) for k in keys}
+    # Pass through LM-derived features
+    for k, v in extra.items():
+        if isinstance(v, (int, float)) and k.startswith("lm_"):
+            out[k] = float(v)
+    for k in [
+        "lm_host_score","lm_host_geom","lm_host_perplexity",
+        "lm_cond_score","lm_cond_geom","lm_cond_perplexity"
+    ]:
+        out.setdefault(k, 0.0)
+    return out
 
 def build_feature_vector(
     dna: str,

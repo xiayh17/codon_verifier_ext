@@ -6,6 +6,7 @@ from codon_verifier.policy import HostConditionalCodonPolicy
 from codon_verifier.reward import combine_reward
 from codon_verifier.features import assemble_feature_bundle
 from codon_verifier.hosts.tables import E_COLI_USAGE, E_COLI_TRNA
+from codon_verifier.lm_features import combined_lm_features
 
 
 def group_relative_advantages(rewards: List[float]) -> List[float]:
@@ -44,6 +45,9 @@ def main():
         for _ in range(args.groups):
             dna, logp = policy.sample_sequence(aa, args.host, motifs_forbidden=motifs, temperature=args.temperature)
             # Note: surrogate model not wired here; using placeholder mu/sigma
+            lm_feats = combined_lm_features(dna, aa=aa, host=args.host)
+            extra_with_lm = dict(extra)
+            extra_with_lm.update(lm_feats)
             res = combine_reward(
                 dna=dna,
                 usage=usage,
@@ -52,7 +56,8 @@ def main():
                 trna_w=trna,
                 cpb=None,
                 motifs=motifs,
-                extra_features=extra,
+                lm_features=lm_feats,
+                extra_features=extra_with_lm,
                 w_surrogate=args.w_sur,
                 w_rules=args.w_rules,
                 lambda_uncertainty=args.lambda_unc,

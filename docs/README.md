@@ -67,14 +67,19 @@ python -m codon_verifier.surrogate_infer_demo --model ecoli_surrogate.pkl --seq 
 from codon_verifier.reward import combine_reward
 from codon_verifier.hosts.tables import E_COLI_USAGE, E_COLI_TRNA
 from codon_verifier.surrogate import load_and_predict
+from codon_verifier.lm_features import combined_lm_features
 
+aa = "M" + "A"*20
 dna = "ATG" + "GCT"*20
 pred = load_and_predict("ecoli_surrogate.pkl", [dna], usage=E_COLI_USAGE, trna_w=E_COLI_TRNA)[0]
 
+lm_feats = combined_lm_features(dna, aa=aa, host="E_coli")
 res = combine_reward(
     dna=dna, usage=E_COLI_USAGE,
     surrogate_mu=pred["mu"], surrogate_sigma=pred["sigma"],
-    trna_w=E_COLI_TRNA, motifs=["GAATTC","GGATCC"], extra_features=None
+    trna_w=E_COLI_TRNA, motifs=["GAATTC","GGATCC"],
+    lm_features=lm_feats,
+    extra_features=lm_feats,
 )
 print(res)
 ```
