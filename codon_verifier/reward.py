@@ -10,6 +10,7 @@ def combine_reward(
     trna_w: Optional[Dict[str,float]] = None,
     cpb: Optional[Dict[str,float]] = None,
     motifs: Optional[List[str]] = None,
+    lm_features: Optional[dict] = None,
     extra_features: Optional[dict] = None,
     weights_rules: Optional[Dict[str,float]] = None,
     w_surrogate: float = 1.0,
@@ -21,9 +22,17 @@ def combine_reward(
     """
     R = w_surrogate * (mu - lambda * sigma) + w_rules * total_rules
     """
+    extra_for_rules = dict(extra_features or {})
+    if lm_features:
+        # expose LM features to downstream consumers (e.g., surrogate training)
+        for k, v in lm_features.items():
+            if k not in extra_for_rules:
+                extra_for_rules[k] = v
+
     rs = rules_score(
         dna, usage,
-        extra_features=extra_features,
+        lm_features=lm_features,
+        extra_features=extra_for_rules,
         trna_w=trna_w, cpb=cpb, motifs=motifs, weights=weights_rules
     )
     mu = surrogate_mu if surrogate_mu is not None else 0.0
@@ -41,4 +50,8 @@ def combine_reward(
     if violation_reason:
         out["violation_reason"] = violation_reason
     out.update(rs)
+    if lm_features:
+        out.setdefault("lm_features", lm_features)
+    if extra_features:
+        out.setdefault("extra_features", extra_for_rules)
     return out

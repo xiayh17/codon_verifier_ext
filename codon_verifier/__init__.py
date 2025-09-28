@@ -4,4 +4,5 @@ __all__ = [
     "features",
     "codon_utils",
     "surrogate",
+    "lm_features",
 ]

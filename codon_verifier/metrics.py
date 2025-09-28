@@ -185,6 +185,37 @@ def min_identity_to_set(dna: str, references: List[str]) -> float:
 # Structural/extra feature terms
 ########################
 
+def lm_feature_terms(lm_feats: dict) -> dict:
+    """Normalise LM-derived metrics to interpretable [0,1] terms."""
+    if not lm_feats:
+        return {
+            "lm_host_term": 0.0,
+            "lm_cond_term": 0.0,
+            "lm_host_geom": 0.0,
+            "lm_cond_geom": 0.0,
+            "lm_host_perplexity": float("nan"),
+            "lm_cond_perplexity": float("nan"),
+        }
+
+    def _extract(prefix: str) -> Tuple[float, float, float]:
+        geom = float(lm_feats.get(f"{prefix}_geom", 0.0) or 0.0)
+        score = float(lm_feats.get(f"{prefix}_score", geom) or geom)
+        ppl = float(lm_feats.get(f"{prefix}_perplexity", float("nan")) or float("nan"))
+        return geom, score, ppl
+
+    host_geom, host_score, host_ppl = _extract("lm_host")
+    cond_geom, cond_score, cond_ppl = _extract("lm_cond")
+
+    return {
+        "lm_host_term": max(0.0, min(1.0, host_score)),
+        "lm_cond_term": max(0.0, min(1.0, cond_score)),
+        "lm_host_geom": host_geom,
+        "lm_cond_geom": cond_geom,
+        "lm_host_perplexity": host_ppl,
+        "lm_cond_perplexity": cond_ppl,
+    }
+
+
 def extra_feature_terms(extra: dict) -> dict:
     """
     Map provided extra features (AlphaFold/ESM/Evo) to [0,1] and combine.
@@ -289,6 +320,7 @@ def five_prime_dG_vienna(dna: str, window_nt: int = 45) -> Optional[float]:
 def rules_score(
     dna: str,
     usage: Dict[str,float],
+    lm_features: Optional[dict] = None,
     extra_features: Optional[dict] = None,
     trna_w: Optional[Dict[str,float]] = None,
     cpb: Optional[Dict[str,float]] = None,
@@ -310,6 +342,8 @@ def rules_score(
     """
     if weights is None:
         weights = {
+            "lm_host": 0.6,
+            "lm_cond": 0.25,
             "cai": 1.0,
             "tai": 0.5,
             "gc": 0.5,
@@ -355,6 +389,7 @@ def rules_score(
 
     _cpb = codon_pair_bias_score(dna, cpb)
 
+    lm_terms = lm_feature_terms(lm_features or {})
     _extra = extra_feature_terms(extra_features or {})
 
     # Diversity term: penalize high identity to references (> threshold)
@@ -375,6 +410,8 @@ def rules_score(
             # Linear ramp down over dG_range (kcal/mol)
             dG_term = max(0.0, 1.0 - (dG_threshold - _dG)/max(1e-6, dG_range))
     total = (
+        weights["lm_host"] * lm_terms["lm_host_term"] +
+        weights["lm_cond"] * lm_terms["lm_cond_term"] +
         weights["cai"] * _cai +
         weights["tai"] * _tai +
         weights["gc"] * gc_term +
@@ -389,6 +426,12 @@ def rules_score(
         + weights["diversity"] * div_term
     )
     return {
+        "lm_host_term": lm_terms["lm_host_term"],
+        "lm_cond_term": lm_terms["lm_cond_term"],
+        "lm_host_geom": lm_terms["lm_host_geom"],
+        "lm_cond_geom": lm_terms["lm_cond_geom"],
+        "lm_host_perplexity": lm_terms["lm_host_perplexity"],
+        "lm_cond_perplexity": lm_terms["lm_cond_perplexity"],
         "cai": _cai,
         "tai": _tai,
         "gc": _gc,
