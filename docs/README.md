@@ -1,5 +1,9 @@
 # Codon Verifier: Verifier + Surrogate + Simple GRPO Policy
 
+## 文档速览
+
+- [整改算法框架梳理文档](algorithm_rectification_framework.md)：以费曼式讲解串联目标澄清、现状诊断、风险识别、路线规划与闭环落地，配套多幅 Mermaid 思维导图帮助快速建立整体图景。
+
 ## 安装
 
 ```bash
