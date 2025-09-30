@@ -123,6 +123,24 @@ python -m codon_verifier.evaluate_offline --dna ATG... ATG... --motif GAATTC --m
 - 输出每条序列的规则项细分与总分，并汇总违规率/平均 CAI/GC。
 - 若安装了 ViennaRNA（Python 或 CLI），将报告 5′ ΔG 与对应奖励项。
 
+## 可选：接入外部核酸语言模型（Evo 2）
+
+- 默认使用基于宿主密码子使用表的简化 LM 特征（`lm_host_*` / `lm_cond_*`）。
+- 如需更强 nt-LM（ArcInstitute 的 Evo 2），已提供适配层：
+  - 代码：`codon_verifier/evo2_adapter.py`（本地 `evo2` 包或 NVIDIA NIM）
+  - 入口：`codon_verifier/lm_features.py` 会在 `USE_EVO2_LM=1` 且后端可用时自动切换为 Evo 2。
+
+使用方式：
+1) 本地推理（GPU）：安装 Evo 2 及其依赖，参考其 README。
+2) 或 NIM：设置环境变量 `NVCF_RUN_KEY`（以及可选 `EVO2_NIM_URL`）。
+3) 运行前设置 `USE_EVO2_LM=1`，示例（PowerShell）：
+```bash
+$env:USE_EVO2_LM="1"
+python -m codon_verifier.run_demo_features
+```
+
+参考：[`ArcInstitute/evo2` 仓库 README](https://github.com/ArcInstitute/evo2)
+
 ---
 
 ## toy_dataset.jsonl (内容示例)
@@ -143,3 +161,43 @@ python -m codon_verifier.evaluate_offline --dna ATG... ATG... --motif GAATTC --m
 
 ΔG 说明：
 - 若安装 Python `ViennaRNA`（`import RNA`），优先使用其 API；否则尝试 `RNAfold --noPS`；若均不可用，将回退到启发式 5′ 结构代理。
+
+## 候选生成与两条并行管线（零数据 / 小数据加强）
+
+- 零数据（不依赖小数据）：
+  - 生成候选并以规则 + nt‑LM（Evo2 或 usage 代理）打分：
+    ```bash
+    python -m codon_verifier.generate_demo --aa MAAAA... --host E_coli --n 500 \
+      --source heuristic --temperature 0.9 --forbid GAATTC GGATCC --top 100
+    ```
+  - 启用 Evo2 作为 nt‑LM（可选）：
+    ```bash
+    $env:USE_EVO2_LM="1"
+    # 如需 NIM:
+    $env:NVCF_RUN_KEY="<your_key>"
+    # 可选:
+    # $env:EVO2_NIM_URL="https://..."
+    ```
+
+- 小数据加强：
+  - 训练代理模型：
+    ```bash
+    python -m codon_verifier.train_surrogate --data your_dataset.jsonl --out ecoli_surrogate.pkl
+    ```
+  - 生成候选 + 融合 μ/σ 打分：
+    ```bash
+    python -m codon_verifier.generate_demo --aa MAAAA... --host E_coli --n 500 \
+      --source heuristic --temperature 0.9 --forbid GAATTC GGATCC \
+      --surrogate ecoli_surrogate.pkl --top 100
+    ```
+
+- 直接用 CodonTransformer 批量生成（如需“几百条”）：
+  - 在 `codon_verifier/codontransformer_adapter.py` 的 `generate_sequences(..., method="transformer")` 中接入真实 `predict_dna_sequence(...)` 后使用：
+    ```bash
+    python -m codon_verifier.generate_demo --aa MAAAA... --host E_coli --n 500 \
+      --source ct --method transformer --temperature 0.8 --topk 50 --beams 0 \
+      --forbid GAATTC GGATCC --top 100
+    ```
+  - 参考资料：[CodonTransformer DeepWiki](https://deepwiki.com/Adibvafa/CodonTransformer)
+
+说明：`--source` 支持 `ct`（外部生成器）、`policy`（轻量策略）与 `heuristic`（使用频率解码）；三者均统一走在线约束过滤与奖励打分，便于横向比较与组合使用。

@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+import os
 from functools import lru_cache
 from typing import Dict, Optional
 
 from .codon_utils import AA_TO_CODONS, CODON_TO_AA, chunk_codons, aa_from_dna
 from .hosts import tables
+from . import evo2_adapter
 
 
 @dataclass
@@ -96,7 +98,25 @@ def _lm_stats_from_probs(dna: str, probs: Dict[str, float]) -> LMScore:
 
 
 def score_nt_lm(dna: str, host: str = "E_coli") -> Dict[str, float]:
-    """Return host-specific LM scores for a DNA candidate."""
+    """Return host-specific LM scores for a DNA candidate.
+
+    If environment variable `USE_EVO2_LM` is set to a truthy value and Evo 2
+    backend is available, use Evo 2 to compute nt-LM stats. Otherwise fall back
+    to internal codon-usage proxy.
+    """
+
+    use_evo2 = os.getenv("USE_EVO2_LM", "").strip().lower() in {"1","true","yes","on"}
+    if use_evo2 and evo2_adapter.is_available():
+        stats = evo2_adapter.score_sequence(dna)
+        # Map to host-prefixed keys for compatibility
+        return {
+            "lm_host_loglik": stats.get("loglik", 0.0),
+            "lm_host_avg_loglik": stats.get("avg_loglik", 0.0),
+            "lm_host_perplexity": stats.get("perplexity", 1.0),
+            "lm_host_geom": stats.get("geom", 1.0),
+            # Heuristic score transform consistent with proxy path
+            "lm_host_score": _score_from_prob(stats.get("geom", 1.0)),
+        }
 
     probs = _cached_codon_probs(host)
     host_score = _lm_stats_from_probs(dna, probs)
@@ -120,6 +140,21 @@ def score_conditional_nt_lm(dna: str, aa: Optional[str] = None, host: str = "E_c
             "lm_cond_score": 0.0,
         })
         return penalised
+
+    use_evo2 = os.getenv("USE_EVO2_LM", "").strip().lower() in {"1","true","yes","on"}
+    if use_evo2 and evo2_adapter.is_available():
+        stats = evo2_adapter.score_sequence(dna)
+        cond = {
+            "lm_cond_loglik": stats.get("loglik", 0.0),
+            "lm_cond_avg_loglik": stats.get("avg_loglik", 0.0),
+            "lm_cond_perplexity": stats.get("perplexity", 1.0),
+            "lm_cond_geom": stats.get("geom", 1.0),
+            "lm_cond_score": _score_from_prob(stats.get("geom", 1.0)),
+        }
+        out = dict(host_dict)
+        out.update({k: v for k, v in cond.items() if k not in out})
+        return out
+
     return {
         **host_dict,
         **_lm_stats_from_probs(dna, _cached_codon_probs(host)).to_dict("lm_cond"),

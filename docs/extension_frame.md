@@ -72,6 +72,9 @@ res = combine_reward(
     - 否则回退 **sklearn.GradientBoostingRegressor(loss='quantile')`
   - build_feature_vector(...)：从 DNA + extra_features 抽取特征（CAI/tAI、GC、滑窗GC统计、5′结构代理、稀有密码子连串、同聚物长度、codon直方图61维、结构/进化协变量等）
   - train_and_save(...)、load_and_predict(...)：端到端训练/推理API
+- Evo 2 nt-LM 接入（可选）
+  - 新增 `codon_verifier/evo2_adapter.py`：本地 `evo2` 包或 NVIDIA NIM 两种后端；未安装则自动不可用。
+  - 更新 `codon_verifier/lm_features.py`：若设置环境变量 `USE_EVO2_LM=1` 且后端可用，则调用 Evo 2 计算 `lm_host_*`/`lm_cond_*`，否则回退到基于宿主密码子使用表的近似特征。
 - 训练与推理脚本：
   - codon_verifier/train_surrogate.py（JSONL → 训练 → .pkl）
   - codon_verifier/surrogate_infer_demo.py（加载 .pkl → 对若干 CDS 输出 μ, σ）
@@ -102,5 +105,9 @@ res = combine_reward(
 )
 备注
 - LightGBM 非必需；若你的环境未装，会自动使用 sklearn 的量化Boosting回归达成等价功能。
+ - 接入 Evo 2：
+   - 本地推理：安装并配置显卡环境，参考 Evo 2 仓库 README（模型名称如 `evo2_7b`）。
+   - 或使用 NVIDIA NIM：设置 `NVCF_RUN_KEY`，可选 `EVO2_NIM_URL`。
+   - 启用：在运行进程环境中设置 `USE_EVO2_LM=1`，现有调用如 `combined_lm_features(...)` 会自动切换为 Evo 2 打分。
 - 特征集是模块化的；若要加入 ViennaRNA ΔG、codon-pair bias 表、或更多蛋白协变量，只需在 build_feature_vector 中添加并重训即可。
 - 若你的 JSONL 单位不一致，建议在数据准备阶段统一或另加 expression_norm 字段。

@@ -11,12 +11,14 @@ mindmap
       features.py
       cache.py
       hosts/tables.py
+      codontransformer_adapter.py
     评分与奖励
       metrics.py
       reward.py
     策略与解码
       codon_utils.py
       policy.py
+      generator.py
     代理模型
       surrogate.py
       train_surrogate.py
@@ -26,6 +28,7 @@ mindmap
       evaluate_offline.py
       run_demo.py
       run_demo_features.py
+      generate_demo.py
 ```
 
 ### 目录结构速览
@@ -65,7 +68,7 @@ mindmap
 
 - `combine_reward` 将代理模型输出的均值/方差与规则分数线性组合，实现
   
-  \[ R = w_{\text{sur}} (\mu - \lambda \cdot \sigma) + w_{\text{rules}} \cdot \text{total\_rules} \]
+  \[ R = w_{\text{sur}} (\mu - \lambda \cdot \sigma) + w_{\text{rules}} \cdot \text{total_rules} \]
 - 支持禁忌位点的硬约束：若命中次数超过阈值，直接判定为非法并返回 `-inf` 奖励。
 - 与策略采样和离线评估共享，保证单一实现贯穿训练与推理阶段。
 
@@ -96,6 +99,19 @@ mindmap
   - `update_from_samples` 按 GRPO 思路执行策略梯度更新，可选对参考策略做 L2 正则（近似 KL）。
 - 该策略既可单独调试，也可嵌入更复杂的上层模型中充当占位实现。
 
+### `generator.py`
+
+- 统一候选生成入口：
+  - `source="ct"`：调用 `codontransformer_adapter`（`transformer`/`HFC`/`BFC`/`URC`）。
+  - `source="policy"`：轻量策略按位采样。
+  - `source="heuristic"`：使用频率受限解码。
+- 内置在线约束过滤（起始 ATG、禁忌位点、翻译一致性）、去重与轻度过采样以提高有效样本数。
+
+### `codontransformer_adapter.py`
+
+- 可选依赖适配层：若未安装真实 CodonTransformer，则提供 HFC/BFC/URC 回退。
+- 预留 `method="transformer"` 的真实模型接入点，支持温度、top‑k、beam 等多样化生成策略。
+
 ## 代理模型（Surrogate）
 
 ### `surrogate.py`
@@ -110,6 +126,7 @@ mindmap
 
 - `train_surrogate.py`：读取 JSONL 数据集并训练代理模型，输出训练指标和模型文件。
 - `surrogate_infer_demo.py`：载入模型，对多条 DNA 计算 (μ, σ)，可用于调试或离线评估。
+- `generate_demo.py`：一键生成候选并按零数据或小数据加强两种模式进行打分和排序。
 
 ## 训练与评估脚本
 
@@ -134,7 +151,7 @@ mindmap
 
 1. **特征准备**：`assemble_feature_bundle` 生成结构/进化特征 → 可选落盘缓存。
 2. **代理模型训练**：`train_surrogate.py` 构建数据集 → `SurrogateModel.fit` → 保存模型。
-3. **策略采样**：`HostConditionalCodonPolicy.sample_sequence` 基于宿主表采样候选 DNA。
+3. **策略采样**：`HostConditionalCodonPolicy.sample_sequence` 基于宿主使用频率采样候选 DNA。
 4. **奖励评估**：`combine_reward` 读取代理预测 (μ, σ) 与规则指标 → 输出总奖励与诊断信息。
 5. **策略更新**：`grpo_train.py` 对采样结果计算优势并调用 `update_from_samples`。
 6. **离线评估**：`evaluate_offline.py` 或外部分析脚本复用 `rules_score` 做批量指标统计。
