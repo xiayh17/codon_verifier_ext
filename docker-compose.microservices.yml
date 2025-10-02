@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Evo2 Service - DNA Sequence Generation
+  evo2:
+    build:
+      context: .
+      dockerfile: services/evo2/Dockerfile
+    image: codon-verifier/evo2:latest
+    container_name: evo2-service
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+      - ${HOME}/.cache/huggingface:/cache/huggingface
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/cache/huggingface
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - codon-network
+
+  # CodonTransformer Service - Codon Optimization
+  codon_transformer:
+    build:
+      context: .
+      dockerfile: services/codon_transformer/Dockerfile
+    image: codon-verifier/codon-transformer:latest
+    container_name: codon-transformer-service
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - codon-network
+
+  # Codon Verifier Service - Sequence Verification
+  codon_verifier:
+    build:
+      context: .
+      dockerfile: services/codon_verifier/Dockerfile
+    image: codon-verifier/codon-verifier:latest
+    container_name: codon-verifier-service
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+      - ./codon_verifier:/app/codon_verifier:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - codon-network
+
+networks:
+  codon-network:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
+

@@ -3,8 +3,34 @@
 ## 文档速览
 
 - [整改算法框架梳理文档](algorithm_rectification_framework.md)：以费曼式讲解串联目标澄清、现状诊断、风险识别、路线规划与闭环落地，配套多幅 Mermaid 思维导图帮助快速建立整体图景。
+- **[Docker 环境配置指南](docker_setup.md)**：一键部署包含 Evo2 + CodonTransformer + 本框架的完整 GPU 开发环境（推荐）
 
 ## 安装
+
+### 🐳 Docker 方式（推荐）
+
+**快速开始**（需要 NVIDIA GPU + nvidia-docker）：
+
+```bash
+# 一键构建并启动
+./docker_quick_start.sh
+
+# 或手动启动
+docker-compose up -d
+docker-compose exec codon-verifier bash
+```
+
+**优势**：
+- ✅ 自动配置 Evo2（包含 CUDA/PyTorch/FP8 支持）
+- ✅ 预装 CodonTransformer + ViennaRNA + 所有依赖
+- ✅ 无需担心环境冲突，开箱即用
+- ✅ 支持 JupyterLab 交互开发
+
+详见 **[Docker 环境配置指南](docker_setup.md)**
+
+---
+
+### 📦 本地虚拟环境方式
 
 ```bash
 PYTHON=$(command -v python3 || command -v python) && "$PYTHON" -m venv .venv && . .venv/bin/activate && python -m pip install --upgrade pip && python -m pip install -r /mnt/c/Users/xiayh17/Projects/codon_verifier_ext/requirements.txt
@@ -167,7 +193,7 @@ python -m codon_verifier.run_demo_features
 - 零数据（不依赖小数据）：
   - 生成候选并以规则 + nt‑LM（Evo2 或 usage 代理）打分：
     ```bash
-    python -m codon_verifier.generate_demo --aa MAAAA... --host E_coli --n 500 \
+    python -m codon_verifier.generate_demo --aa MIERELGNWKDFIEVMLRK* --host E_coli --n 500 \
       --source heuristic --temperature 0.9 --forbid GAATTC GGATCC --top 100
     ```
   - 启用 Evo2 作为 nt‑LM（可选）：

@@ -1,0 +1,17 @@
+{
+  "task": "generate_sequence",
+  "input": {
+    "sequence": "ATGCGATCGATCGATCG",
+    "organism": "human",
+    "parameters": {
+      "temperature": 0.8,
+      "max_length": 500
+    }
+  },
+  "metadata": {
+    "request_id": "example_001",
+    "timestamp": "2025-10-02T10:30:00Z",
+    "description": "Example sequence generation task"
+  }
+}
+

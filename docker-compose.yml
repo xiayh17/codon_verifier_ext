@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  codon-verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: codon-verifier:latest
+    container_name: codon-verifier-dev
+    
+    # GPU configuration (required for Evo2)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Volume mappings
+    volumes:
+      # Mount current project directory
+      - .:/workdir
+      # Persist HuggingFace model cache
+      - ${HOME}/.cache/huggingface:/workdir/.cache/huggingface
+      # Persist CodonTransformer cache
+      - codon-transformer-cache:/workdir/.cache/CodonTransformer
+    
+    # Environment variables
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/workdir/.cache/huggingface
+      - TRANSFORMERS_CACHE=/workdir/.cache/huggingface
+    
+    # Port mappings for Jupyter
+    ports:
+      - "8888:8888"  # JupyterLab
+      - "6006:6006"  # TensorBoard (optional)
+    
+    # Keep container running
+    tty: true
+    stdin_open: true
+    
+    # Default command
+    command: /bin/bash
+
+volumes:
+  codon-transformer-cache:
+    driver: local

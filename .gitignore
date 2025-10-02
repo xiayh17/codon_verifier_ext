@@ -107,3 +107,7 @@ codon_verifier/hosts/__pycache__/
 # *.pth
 # *.h5
 
+data/2025_bio-os_data/
+data/converted/
+data/output/
+data/temp/
