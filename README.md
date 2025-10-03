@@ -2,6 +2,8 @@
 
 > 基于 Verifier + Surrogate + GRPO 的密码子优化框架，集成 Evo2 和 CodonTransformer
 
+📚 **[完整文档索引](DOCUMENTATION_INDEX.md)** - 查找所有文档的导航指南
+
 ## 🚀 快速开始
 
 ### Docker 方式（推荐）
