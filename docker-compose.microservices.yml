@@ -57,6 +57,22 @@ services:
     networks:
       - codon-network
 
+  # Training Service - Surrogate Model Training
+  training:
+    build:
+      context: .
+      dockerfile: services/training/Dockerfile
+    image: codon-verifier/training:latest
+    container_name: training-service
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+      - ./models:/data/output/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - codon-network
+
 networks:
   codon-network:
     driver: bridge
