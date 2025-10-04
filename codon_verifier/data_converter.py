@@ -57,6 +57,9 @@ def estimate_expression_from_metadata(
     
     This is a heuristic approach since we don't have direct expression data.
     Returns (expression_value, confidence_level)
+    
+    Note: For enhanced estimation with Evo2 model features, use the
+    expression_estimator module instead.
     """
     # Base score
     score = 50.0

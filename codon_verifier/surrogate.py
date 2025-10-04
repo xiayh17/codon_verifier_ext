@@ -126,6 +126,13 @@ class SurrogateConfig:
     quantile_hi: float = 0.84   # ~ +1 sigma for normal
     test_size: float = 0.15
     random_state: int = 42
+    # Enhanced hyperparameters
+    n_estimators: int = 400
+    learning_rate: float = 0.05
+    max_depth: int = 5          # increased from 3 for better capacity
+    use_log_transform: bool = False  # log1p target transformation
+    min_child_samples: int = 20  # minimum samples per leaf
+    min_child_weight: float = 0.001  # minimum sum of hessian in leaf
 
 class SurrogateModel:
     """
@@ -143,13 +150,37 @@ class SurrogateModel:
         self.scaler = StandardScaler()
 
     def _make_lgb(self, alpha: float):
-        params = dict(objective="quantile", alpha=alpha, n_estimators=400, learning_rate=0.05)
+        params = dict(
+            objective="quantile", 
+            alpha=alpha, 
+            n_estimators=self.cfg.n_estimators, 
+            learning_rate=self.cfg.learning_rate,
+            max_depth=self.cfg.max_depth,
+            num_leaves=2**self.cfg.max_depth - 1,
+            min_child_samples=self.cfg.min_child_samples,
+            min_child_weight=self.cfg.min_child_weight,
+            verbose=-1  # suppress warnings
+        )
         return lgb.LGBMRegressor(**params)
 
     def _make_gbr(self, alpha: float):
-        return GradientBoostingRegressor(loss="quantile", alpha=alpha, n_estimators=400, learning_rate=0.05, max_depth=3)
+        return GradientBoostingRegressor(
+            loss="quantile", 
+            alpha=alpha, 
+            n_estimators=self.cfg.n_estimators, 
+            learning_rate=self.cfg.learning_rate, 
+            max_depth=self.cfg.max_depth
+        )
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+        # Apply log transform if requested
+        if self.cfg.use_log_transform:
+            y_transformed = np.log1p(y)
+            self._y_is_log = True
+        else:
+            y_transformed = y
+            self._y_is_log = False
+        
         # standardize features
         Xs = self.scaler.fit_transform(X)
         if _HAS_LGB:
@@ -159,21 +190,32 @@ class SurrogateModel:
             self.mu_model = self._make_gbr(0.5)
             self.hi_model = self._make_gbr(self.cfg.quantile_hi)
 
-        Xtr, Xte, ytr, yte = train_test_split(Xs, y, test_size=self.cfg.test_size, random_state=self.cfg.random_state)
+        Xtr, Xte, ytr, yte = train_test_split(Xs, y_transformed, test_size=self.cfg.test_size, random_state=self.cfg.random_state)
         self.mu_model.fit(Xtr, ytr)
         self.hi_model.fit(Xtr, ytr)
 
         mu_pred = self.mu_model.predict(Xte)
         hi_pred = self.hi_model.predict(Xte)
-        r2 = r2_score(yte, mu_pred)
-        mae = mean_absolute_error(yte, mu_pred)
+        
+        # Inverse transform if log was applied
+        if self._y_is_log:
+            mu_pred_orig = np.expm1(mu_pred)
+            hi_pred_orig = np.expm1(hi_pred)
+            yte_orig = np.expm1(yte)
+        else:
+            mu_pred_orig = mu_pred
+            hi_pred_orig = hi_pred
+            yte_orig = yte
+        
+        r2 = r2_score(yte_orig, mu_pred_orig)
+        mae = mean_absolute_error(yte_orig, mu_pred_orig)
         # sigma proxy quality (MAD of residuals)
-        sigma_est = np.maximum(1e-6, hi_pred - mu_pred)
+        sigma_est = np.maximum(1e-6, hi_pred_orig - mu_pred_orig)
         metrics = {
             "r2_mu": float(r2),
             "mae_mu": float(mae),
             "sigma_mean": float(np.mean(sigma_est)),
-            "n_test": int(len(yte)),
+            "n_test": int(len(yte_orig)),
         }
         return metrics
 
@@ -181,6 +223,12 @@ class SurrogateModel:
         Xs = self.scaler.transform(X)
         mu = self.mu_model.predict(Xs)
         hi = self.hi_model.predict(Xs)
+        
+        # Inverse transform if log was applied during training
+        if hasattr(self, '_y_is_log') and self._y_is_log:
+            mu = np.expm1(mu)
+            hi = np.expm1(hi)
+        
         sigma = np.maximum(1e-6, hi - mu)
         return mu, sigma
 
@@ -191,6 +239,7 @@ class SurrogateModel:
             "scaler": self.scaler,
             "mu_model": self.mu_model,
             "hi_model": self.hi_model,
+            "_y_is_log": getattr(self, '_y_is_log', False),
         }
         joblib.dump(obj, path)
 
@@ -201,6 +250,7 @@ class SurrogateModel:
         m.scaler = obj["scaler"]
         m.mu_model = obj["mu_model"]
         m.hi_model = obj["hi_model"]
+        m._y_is_log = obj.get("_y_is_log", False)
         return m
 
 ########################
